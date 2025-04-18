@@ -1,2 +1,2 @@
 # swiftmedic
-a ambulance booking and trackin system
+a ambulance booking and tracking system
