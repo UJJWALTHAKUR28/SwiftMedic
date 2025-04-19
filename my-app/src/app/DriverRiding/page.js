@@ -29,6 +29,14 @@ const DriverRidingPage = () => {
           console.error('Logout error:', error);
         }
       };
+
+      if (isLoading) {
+        return (
+          <div className="flex items-center justify-center min-h-screen">
+            <p className="text-xl font-medium">Loading driver data...</p>
+          </div>
+        );
+      }
   return (
     <div className='h-screen relative'>
  

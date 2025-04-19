@@ -9,7 +9,10 @@ const mapRoutes =require('./routes/maps.routes')
 const rideRoutes =require('./routes/ride.routes')
 // Load env vars early
 require('dotenv').config();
-
+app.use(cors({
+    origin: "*",
+    credentials: true
+}));
 // Middleware
 app.use(cors());
 app.use(express.json()); // If expecting JSON payloads
@@ -23,7 +26,7 @@ app.get('/', (req, res) => {
 app.use(express.json());
 app.use('/users', userRoutes);
 app.use('/ambulancedriver', ambulancedriverRoutes);
-app.use('maps',mapRoutes)
+app.use('/maps',mapRoutes)
 app.use('/rides',rideRoutes);
 // Connect to DB
 connectToDb();

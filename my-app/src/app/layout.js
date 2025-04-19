@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "./context/usercontext";
 import { DriverProvider } from "./context/captaincontext"; // Import the context
+import { SocketProvider } from "./context/SocketContext";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -22,10 +23,11 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <div className="layout-container">
-        <UserProvider><DriverProvider> {/* ✅ Now all child routes can access useDriver() */}
+        <SocketProvider>
+        <UserProvider><DriverProvider> 
               {children}
             </DriverProvider></UserProvider>
-          
+            </SocketProvider>
           
         </div>
       </body>

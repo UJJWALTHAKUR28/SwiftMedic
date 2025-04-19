@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import UserProtectedRoute, { useUser } from '../userProtected/page';
 import { logoutUser } from '@/utils/logout';
@@ -13,6 +13,7 @@ import Vehicelpanel from '@/components/vehicelpanel';
 import ConfirmRide from '@/components/ConfirmRide';
 import LookingforDriver from '@/components/LookingforDriver';
 import WaitingForDrivers from '@/components/WaitingForDrivers';
+import { useSocket } from '../context/SocketContext';
 ConfirmRide
 const UserContent = () => {
   const router = useRouter();
@@ -26,6 +27,18 @@ const UserContent = () => {
   const panelcloseRef= useRef(null)
   const vehiclefoundRef= useRef(null)
   const waitingForDriverRef= useRef(null)
+  const { sendMessage, receivemessage, isConnected } = useSocket();
+  
+  useEffect(() => {
+    if (user?._id && isConnected) {
+      console.log('Attempting to join with user:', user._id);
+      sendMessage("join", { 
+        userType: "user", 
+        userId: user._id 
+      });
+    }
+  }, [user, isConnected, sendMessage]);
+  
   const [vehicleType, setvehicleType] = useState(null)
   const [vehiclepanel, setvehiclepanel] = useState(false)
   const [confirmRide, setconfirmRide] = useState(false)
@@ -39,58 +52,83 @@ const UserContent = () => {
   const fetchSuggestions = async (input, type) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/maps/get-suggestions?input=${encodeURIComponent(input)}&type=${type}`, {
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/maps/get-suggestions?input=${encodeURIComponent(input)}`, {
         headers: {
-          
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch suggestions');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch suggestions');
       }
 
       const data = await response.json();
-      setSuggestions(data.predictions || []); // Use API response or empty array
+      if (data && Array.isArray(data)) {
+        setSuggestions(data);
+      } else if (data && data.predictions) {
+        setSuggestions(data.predictions);
+      } else {
+        setSuggestions([]);
+      }
     } catch (error) {
       console.error('Error fetching suggestions:', error);
-      setSuggestions([]); // Reset suggestions on error
+      setSuggestions([]);
     }
-  };
+};
 
-  const submitHandler = async (e) => {
-    e.preventDefault();
+const submitHandler = async (e) => {
+  e.preventDefault();
 
-    // Only proceed if both pickup and dropoff are set
-    if (pickup && dropoff) {
-      const data = {
-        pickup: pickup,
-        dropoff: dropoff
-      };
-      console.log(data);
-      setpanel(false); // Close the suggestions panel
-      setvehiclepanel(true); // Show vehicle panel when Find Trip button is clicked
+  // Only proceed if both pickup and dropoff are set
+  if (pickup && dropoff) {
+    const data = {
+      pickup: pickup,
+      dropoff: dropoff
+    };
+    console.log(data);
+    setpanel(false); // Close the suggestions panel
+    setvehiclepanel(true); // Show vehicle panel when Find Trip button is clicked
 
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/rides/get-fare?pickup=${encodeURIComponent(pickup)}&dropoff=${encodeURIComponent(dropoff)}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch fare details');
-        }
-
-        const fareData = await response.json();
-        setfare(fareData); // Update fare state with the fetched data
-      } catch (error) {
-        console.error('Error fetching fare details:', error);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
+       
+      // Fix: Correct API URL construction
+      const fareURL = `${process.env.NEXT_PUBLIC_BASE_API_URL}/rides/get-fare?pickup=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(dropoff)}`;
+      
+      console.log('Requesting fare from:', fareURL); // Debug log
+
+      const response = await fetch(fareURL, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch fare details');
+      }
+
+      const fareData = await response.json();
+      console.log('Fare data received:', fareData); // Debug log
+      setfare(fareData);
+    } catch (error) {
+      console.error('Error fetching fare details:', error);
+      // Optionally show user-friendly error message
+      alert('Unable to calculate fare. Please try again.');
     }
-  };
+  }
+};
   
   useGSAP(function(e){
     if(panel){
@@ -205,25 +243,47 @@ const UserContent = () => {
     setpanel(!panel);
   };
 
-  async function createRide() {
-    const token = localStorage.getItem('token');
+  const createRide = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
   
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/rides/create`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        pickup,
-        destination: dropoff, // assuming `dropoff` is your destination
-        vehicleType
-      })
-    });
+      // Ensure all required data is present
+      if (!pickup || !dropoff || !vehicleType) {
+        throw new Error('Missing required ride details');
+      }
   
-    const data = await response.json();
-    console.log(data);
-  }
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/rides/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          pickup,
+          destination: dropoff,
+          vehicleType
+        })
+      });
+  
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create ride');
+      }
+  
+      const data = await response.json();
+      setvehicleFound(true);
+      setconfirmRide(false);
+      return data;
+  
+    } catch (error) {
+      console.error('Create ride error:', error);
+      alert('Failed to create ride: ' + error.message);
+      setvehicleFound(false);
+    }
+  };
   const handleLogout = async () => {
     try {
       await logoutUser('users/logout');
@@ -312,11 +372,13 @@ const UserContent = () => {
           <ConfirmRide 
           fare={fare}
           pickup={pickup}
-          destination={dropoff}
+          destination={dropoff} setvehicleType={setvehicleType}
           setvehicleFound={setvehicleFound} setpanel={setpanel} setconfirmRide={setconfirmRide} setvehiclepanel={setvehiclepanel} createRide={createRide} />
         </div>
         <div ref={vehiclefoundRef} className='fixed w-full z-10 bottom-0 bg-white px-3 py-6 pt-12 translate-y-full'>
-          <LookingforDriver setvehicleFound={setvehicleFound} setpanel={setpanel} setconfirmRide={setconfirmRide} setvehiclepanel={setvehiclepanel} />
+          <LookingforDriver setvehicleFound={setvehicleFound} setpanel={setpanel} setconfirmRide={setconfirmRide} setvehiclepanel={setvehiclepanel} createRide={createRide} fare={fare}
+          pickup={pickup}
+          destination={dropoff} />
         </div>
         <div ref={waitingForDriverRef} className='fixed w-full z-10 bottom-0 bg-white px-3 py-6 pt-12 translate-y-full'>
           <WaitingForDrivers waitingForDriver={waitingForDriver} />

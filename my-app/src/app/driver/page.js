@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CaptainProtectedRoute from '../captainprotected/page'; // Ensure this path is accurate
 import { logoutUser } from '@/utils/logout';
@@ -8,38 +8,114 @@ import Link from 'next/link';
 import 'remixicon/fonts/remixicon.css'
 import CaptainDetail from '@/components/CaptainDeatil';
 import Ridenotification from '@/components/Ridenotification';
+import { useDriver } from '../context/captaincontext';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import ConfirmRidenotification from '@/components/ConfirmRidenotification';
+import { useSocket } from '../context/SocketContext';
+
 const DriverPage = () => {
   const router = useRouter();
-  const [ridenotifypopup, setridenotifypopup] = useState(true)
-  const [ConfirmRidenotify, setConfirmridenotify] = useState(false)
-  const ridenotifyRef = useRef(null)
-  const confirmridenotifyRef = useRef(null)
-  
+  const { driverData, isLoading } = useDriver();
+  const [ridenotifypopup, setridenotifypopup] = useState(false);
+  const [ConfirmRidenotify, setConfirmridenotify] = useState(false);
+  const [ride, setRide] = useState(null);
+  const ridenotifyRef = useRef(null);
+  const confirmridenotifyRef = useRef(null);
+  const { sendMessage, receivemessage, isConnected } = useSocket();
+
+  useEffect(() => {
+    if (driverData?._id && isConnected) {
+      console.log('Attempting to join with user:', driverData._id);
+      sendMessage("join", { 
+        userType: "ambulancedriver", 
+        userId: driverData._id 
+      });
+    }
+
+    // Handle new ride notifications
+    const handleNewRide = (data) => {
+      console.log('New ride notification received:', data);
+      if (data.event === 'new-ride') {
+        setRide(data.data);
+        setridenotifypopup(true);
+      }
+    };
+
+    // Listen for messages (which include ride notifications)
+    receivemessage('message', handleNewRide);
+
+    const updateLocation = () => {
+      if (navigator.geolocation && driverData?._id) {
+        navigator.geolocation.getCurrentPosition(position => {
+          sendMessage('update-location-driver', {
+            userId: driverData._id,
+            userType: "ambulancedriver",
+            location: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            }
+          });
+        });
+      }
+    };
+
+    const intervalId = setInterval(updateLocation, 10000);
+    updateLocation();
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [driverData, isConnected, sendMessage, receivemessage]);
+
+  const confirmRide = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/rides/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          rideId: ride._id,
+          captainId: driverData._id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to confirm ride');
+      }
+
+      setridenotifypopup(false);
+      setConfirmridenotify(true);
+    } catch (error) {
+      console.error('Error confirming ride:', error);
+    }
+  };
+
   useGSAP(function(){
     if(ridenotifypopup){
-  gsap.to(ridenotifyRef.current,{
-    transform:"translate(0)",
-  })}
-   else{
-    gsap.to(ridenotifyRef.current,{
-      transform:"translateY(100%)"
-    })
-   }
-  },[ridenotifypopup])
+      gsap.to(ridenotifyRef.current,{
+        transform:"translate(0)",
+      });
+    } else {
+      gsap.to(ridenotifyRef.current,{
+        transform:"translateY(100%)"
+      });
+    }
+  },[ridenotifypopup]);
+
   useGSAP(function(){
     if(ConfirmRidenotify){
-  gsap.to(confirmridenotifyRef.current,{
-    transform:"translate(0)",
-  })}
-   else{
-    gsap.to(confirmridenotifyRef.current,{
-      transform:"translateY(100%)"
-    })
-   }
-  },[ConfirmRidenotify])
+      gsap.to(confirmridenotifyRef.current,{
+        transform:"translate(0)",
+      });
+    } else {
+      gsap.to(confirmridenotifyRef.current,{
+        transform:"translateY(100%)"
+      });
+    }
+  },[ConfirmRidenotify]);
 
   const handleLogout = async () => {
     try {
@@ -52,29 +128,32 @@ const DriverPage = () => {
 
   return (
     <div className='h-screen'>
-        
-        <div className='fixed p-6  top-0 flex items-center justify-between w-screen'>
-          <img className='w-25'src="images/logo11.png" alt=''/>
-          <Link onClick={()=>{
-            logoutUser()
-          }} href="/login/driverlogin" className=' h-10 w-10 bg-white flex item-center justify-center rounded-full'>
-          <i className="text-3xl font-medium  ri-logout-box-r-line"></i>
+      <div className='fixed p-6 top-0 flex items-center justify-between w-screen'>
+        <img className='w-25' src="images/logo11.png" alt=''/>
+        <Link onClick={handleLogout} href="/login/driverlogin" className='h-10 w-10 bg-white flex item-center justify-center rounded-full'>
+          <i className="text-3xl font-medium ri-logout-box-r-line"></i>
         </Link>
-        </div>
-     <div className='h-3/5'>
-        <img className='h-full w-full object-cover' src="https://www.medianama.com/wp-content/uploads/2018/06/Screenshot_20180619-112715.png.png"></img>
-
-     </div>
-      <div className='h-2/5 p-6'>
-         <CaptainDetail/>
-
       </div>
-      <div ref={ridenotifyRef} className=' fixed w-full z-10 bottom-0 bg-white px-3 py-6 '>
-       <Ridenotification setridenotifypopup={setridenotifypopup} setConfirmridenotify={setConfirmridenotify}/>
-     </div>
-     <div ref={confirmridenotifyRef} className=' fixed w-full z-10 bottom-0 bg-white px-3 py-6 translate-y-full h-screen '>
-       <ConfirmRidenotification setConfirmridenotify={setConfirmridenotify}/>
-     </div>
+      <div className='h-3/5'>
+        <img className='h-full w-full object-cover' src="https://www.medianama.com/wp-content/uploads/2018/06/Screenshot_20180619-112715.png.png" alt="Map"></img>
+      </div>
+      <div className='h-2/5 p-6'>
+        <CaptainDetail driver={driverData}/>
+      </div>
+      <div ref={ridenotifyRef} className='fixed w-full z-10 bottom-0 bg-white px-3 py-6'>
+        <Ridenotification 
+          setridenotifypopup={setridenotifypopup} 
+          setConfirmridenotify={setConfirmridenotify}
+          ride={ride}
+          onConfirm={confirmRide}
+        />
+      </div>
+      <div ref={confirmridenotifyRef} className='fixed w-full z-10 bottom-0 bg-white px-3 py-6 translate-y-full h-screen'>
+        <ConfirmRidenotification 
+          setConfirmridenotify={setConfirmridenotify}
+          ride={ride}
+        />
+      </div>
     </div>
   );
 };

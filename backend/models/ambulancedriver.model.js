@@ -11,7 +11,6 @@ const AmbulancedriverSchema = new mongoose.Schema({
         },
         lastname: {
             type: String,
-            minlength: 3
         }
     },
     phonenumber: {
@@ -39,8 +38,14 @@ const AmbulancedriverSchema = new mongoose.Schema({
         default: 'inactive'
     },
     location: {
-        lat: Number,
-        lng: Number
+        lat: {
+            type: Number,
+            required: true
+        },
+        lng: {
+            type: Number,
+            required: true
+        }
     },
     vehicle: {
         plate: {
