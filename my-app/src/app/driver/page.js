@@ -13,6 +13,7 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import ConfirmRidenotification from '@/components/ConfirmRidenotification';
 import { useSocket } from '../context/SocketContext';
+import LiveTracking from '@/components/LiveTracking';
 
 const DriverPage = () => {
   const router = useRouter();
@@ -197,7 +198,7 @@ const DriverPage = () => {
         </Link>
       </div>
       <div className='h-3/5'>
-        <img className='h-full w-full object-cover' src="https://www.medianama.com/wp-content/uploads/2018/06/Screenshot_20180619-112715.png.png" alt="Map"></img>
+        <LiveTracking/>
       </div>
       <div className='h-2/5 p-6'>
         <CaptainDetail driver={driverData}/>
@@ -214,6 +215,28 @@ const DriverPage = () => {
         <ConfirmRidenotification 
           setConfirmridenotify={setConfirmridenotify}
           ride={ride}
+          setRideData={(rideData) => {
+            // Store ride data in localStorage
+            try {
+              // Store ride data
+              localStorage.setItem('currentRide', JSON.stringify({
+                _id: ride._id,
+                pickup: ride.pickup,
+                destination: ride.destination,
+                fare: ride.fare,
+                status: 'ongoing'
+              }));
+              
+              // Store passenger details
+              if (ride.user) {
+                localStorage.setItem('passengerDetails', JSON.stringify(ride.user));
+              }
+              
+              console.log('Stored ride data for driver');
+            } catch (error) {
+              console.error('Error storing ride data:', error);
+            }
+          }}
         />
       </div>
     </div>

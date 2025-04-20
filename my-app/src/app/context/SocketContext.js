@@ -6,6 +6,77 @@ import { io } from 'socket.io-client';
 
 const SocketContext = createContext();
 
+// Debug logger for socket events
+const debugSocket = (message, data) => {
+  console.log(`🔌 ${message}`, data);
+};
+
+// Enhanced version of receivemessage - define this outside the component
+function enhancedReceiveMessage(event, callback) {
+  debugSocket(`SOCKET REGISTER: Setting up listener for event: ${event}`, {});
+  
+  // Get the socket instance
+  const socket = window.socket;
+  
+  if (!socket) {
+    console.error(`🔌 SOCKET ERROR: Socket not available when trying to listen for ${event}`);
+    return false;
+  }
+  
+  // First remove any existing listeners to prevent duplicates
+  socket.off(event);
+  
+  // Add the new listener with debug logging
+  socket.on(event, (data) => {
+    debugSocket(`SOCKET EVENT: ${event} received`, data);
+    
+    // Special handling for critical events
+    if (event === 'ride-ended') {
+      debugSocket('CRITICAL EVENT: ride-ended received', data);
+      
+      // Create and dispatch DOM event as direct backup
+      const rideEndedEvent = new CustomEvent('rideEnded', {
+        detail: {
+          rideEnded: true,
+          ride: data,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      document.dispatchEvent(rideEndedEvent);
+      
+      // Try BroadcastChannel as another backup
+      try {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('ride_events');
+          bc.postMessage({
+            event: 'ride-ended',
+            data: data,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error('Error with BroadcastChannel:', err);
+      }
+      
+      // Force a global flag for polling detection
+      window.rideEndedReceived = true;
+    }
+    
+    // Execute the callback
+    if (typeof callback === 'function') {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error(`🔌 SOCKET ERROR: Error in ${event} callback:`, error);
+      }
+    }
+  });
+  
+  debugSocket(`SOCKET READY: Listening for event: ${event}`, {});
+  return true;
+}
+
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -120,6 +191,41 @@ export const SocketProvider = ({ children }) => {
         }
       }
       
+      // Direct handling for ride-started event
+      if (event === 'ride-started' || 
+          (event === 'message' && args[0]?.event === 'ride-started')) {
+        
+        const data = event === 'ride-started' ? args[0] : args[0].data;
+        console.log('[🚙 Socket] Ride started detected:', data);
+        
+        // Store ride data in localStorage for the Riding page
+        try {
+          // Store the essential ride data
+          const rideToStore = {
+            _id: data._id,
+            pickup: data.pickup,
+            destination: data.destination,
+            fare: data.fare,
+            status: 'ongoing'
+          };
+          
+          // Store ride data and driver details
+          localStorage.setItem('currentRide', JSON.stringify(rideToStore));
+          
+          if (data.driver || data.ambulancedriver) {
+            localStorage.setItem('driverDetails', JSON.stringify(data.driver || data.ambulancedriver));
+          }
+          
+          console.log('[🚙 Socket] Stored ride data, redirecting to /Riding');
+        } catch (error) {
+          console.error('[🚙 Socket] Error storing ride data:', error);
+        }
+        
+        // Force navigation to Riding page
+        console.log('[🚙 Socket] IMMEDIATE REDIRECT TO /RIDING');
+        window.location.href = '/Riding';
+      }
+      
       // Check if this is a 'message' event
       if (event === 'message') {
         const data = args[0];
@@ -171,24 +277,8 @@ export const SocketProvider = ({ children }) => {
     socket.emit(event, data);
   };
 
-  const receivemessage = (event, handler) => {
-    if (!handler || typeof handler !== 'function') {
-      console.error('[📥 Socket] Invalid handler provided');
-      return;
-    }
-    
-    console.log(`[📥 Socket] Listening for event: ${event}`);
-    
-    // Store handler in ref to avoid issues with closures
-    messageHandlersRef.current[event] = messageHandlersRef.current[event] || [];
-    messageHandlersRef.current[event].push(handler);
-    
-    // Return cleanup function
-    return () => {
-      if (messageHandlersRef.current[event]) {
-        messageHandlersRef.current[event] = messageHandlersRef.current[event].filter(h => h !== handler);
-      }
-    };
+  const receivemessage = (event, callback) => {
+    return enhancedReceiveMessage(event, callback);
   };
 
   // Always ensure the socket is exposed
@@ -252,20 +342,59 @@ export const SocketProvider = ({ children }) => {
       }
     };
     
+    // Special handler for ride-started events
+    const rideStartedHandler = (data) => {
+      console.log('[🚗 Socket] Direct ride-started event received:', data);
+      
+      // Store ride data in localStorage for the Riding page
+      try {
+        // Store the essential ride data
+        const rideToStore = {
+          _id: data._id,
+          pickup: data.pickup,
+          destination: data.destination,
+          fare: data.fare,
+          status: 'ongoing'
+        };
+        
+        // Store ride data and driver details
+        localStorage.setItem('currentRide', JSON.stringify(rideToStore));
+        
+        if (data.driver || data.ambulancedriver) {
+          localStorage.setItem('driverDetails', JSON.stringify(data.driver || data.ambulancedriver));
+        }
+        
+        console.log('[🚗 Socket] Stored ride data in localStorage, redirecting to /Riding');
+      } catch (error) {
+        console.error('[🚗 Socket] Error storing ride data:', error);
+      }
+      
+      // Force navigation to Riding page
+      console.log('[🚗 Socket] Forcing navigation to /Riding');
+      window.location.href = '/Riding';
+    };
+    
     // Add special handlers
     socket.on('ride-confirmed', rideConfirmedHandler);
+    socket.on('ride-started', rideStartedHandler);
     
-    // Also listen for message events containing ride confirmations
+    // Also listen for message events containing important events
     socket.on('message', (data) => {
       if (data?.event === 'ride-confirmed') {
         console.log('[🚗 Socket] Detected ride-confirmed in message:', data);
         rideConfirmedHandler(data.data || data);
+      }
+      
+      if (data?.event === 'ride-started') {
+        console.log('[🚗 Socket] Detected ride-started in message:', data);
+        rideStartedHandler(data.data || data);
       }
     });
     
     return () => {
       // Clean up event listeners
       socket.off('ride-confirmed', rideConfirmedHandler);
+      socket.off('ride-started', rideStartedHandler);
       socket.off('message');
     };
   }, [socket]);

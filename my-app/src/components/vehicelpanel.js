@@ -17,7 +17,7 @@ const Vehicelpanel = (props) => {
      </div>
      <h2 className='text-xl font-semibold mr-10'>
       
-      {props.fare?.swiftbasic || 'Rs 302'}</h2>
+     ₹ {props.fare?.swiftbasic || '₹ 302'}</h2>
     </div>
     <div onClick={()=>{props.setconfirmRide(true),props.setvehicleType('swiftexpress')}
     }  className="flex items-center justify-between w-full p-3 mb-3 rounded-xl border-2 border-transparent active:border-black">
@@ -30,7 +30,7 @@ const Vehicelpanel = (props) => {
       
       <p className='font-normal text-xs text-gray-600'>Lightning-fast dispatch and triage.  Built for emergencies where rapid response is mission-critical.</p>
      </div>
-     <h2 className='text-xl font-semibold mr-10'> {props.fare?.swiftexpress || 'Rs 602'}</h2>
+     <h2 className='text-xl font-semibold mr-10'> ₹{props.fare?.swiftexpress || '₹ 602'}</h2>
     </div>
     <div onClick={()=>{props.setconfirmRide(true),props.setvehicleType('swiftrange')}}   className="flex items-center justify-between w-full p-3 mb-3 rounded-xl border-2 border-transparent active:border-black">
 
@@ -42,7 +42,7 @@ const Vehicelpanel = (props) => {
       
       <p className='font-normal text-xs text-gray-600'>Long-distance ambulance service for intercity hospital transfers or rural patient pickups with extended-range comfort and support.</p>
      </div>
-     <h2 className='text-xl font-semibold mr-8'>{props.fare?.swiftexpress || 'Rs 1002'}</h2>
+     <h2 className='text-xl font-semibold mr-8'>₹{props.fare?.swiftrange || '₹ 1002'}</h2>
     </div></div>
   )
 }

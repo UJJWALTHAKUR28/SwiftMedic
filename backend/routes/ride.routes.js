@@ -27,6 +27,13 @@ router.post('/create', [
         .isIn(validVehicleTypes)
         .withMessage(`Vehicle type must be one of: ${validVehicleTypes.join(', ')}`)
 ], rideController.createRide);
+
+router.get('/status',
+    authMiddleware.authUser,
+    query('rideId').isMongoId().withMessage('Invalid ride id'),
+    rideController.getRideStatus
+)
+
 router.get('/get-fare',
     authMiddleware.authUser,
     query('pickup').isString().isLength({min:3}).withMessage('Invalid pickup'),
@@ -39,4 +46,16 @@ router.post('/confirm',
     rideController.confirmRide
 )
 
+router.get('/start-ride',
+    authMiddleware.authDriver(),
+    query('rideId').isMongoId().withMessage('Invalid ride id'),
+    query('otp').isString().isLength({min:6,max:6}).withMessage('Invalid otp'),
+    rideController.startRide
+)
+
+router.post('/end-ride',
+    authMiddleware.authDriver(),
+    body('rideId').isMongoId().withMessage('Invalid ride id'),
+    rideController.endRide
+)
 module.exports =router;

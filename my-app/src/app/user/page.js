@@ -14,6 +14,7 @@ import Vehicelpanel from '@/components/vehicelpanel';
 import ConfirmRide from '@/components/ConfirmRide';
 import LookingforDriver from '@/components/LookingforDriver';
 import WaitingForDrivers from '@/components/WaitingForDrivers';
+import LiveTracking from '@/components/LiveTracking';
 
 const UserContent = () => {
   const router = useRouter();
@@ -40,7 +41,35 @@ const UserContent = () => {
   const waitingForDriverRef = useRef(null);
   const panelcloseRef = useRef(null);
   const userMounted = useRef(false);
+  // First, add a state to track panel open/closed status
+const [panelOpen, setPanelOpen] = useState(false);
 
+// Then modify your GSAP animations to use this state
+useGSAP(() => {
+  if (panelOpen) {
+    gsap.to(panelRef.current, {
+      height: '70%',
+      padding: 24,
+      duration: 0.3
+    });
+    gsap.to(panelcloseRef.current, {
+      opacity: 1,
+      rotation: 180,  // Rotate arrow when open
+      duration: 0.3
+    });
+  } else {
+    gsap.to(panelRef.current, {
+      height: '0%',
+      padding: 0,
+      duration: 0.3
+    });
+    gsap.to(panelcloseRef.current, {
+      opacity: 1,
+      rotation: 0,  // Reset rotation when closed
+      duration: 0.3
+    });
+  }
+}, [panelOpen]);
   // Mounting
   useEffect(() => {
     userMounted.current = true;
@@ -199,6 +228,92 @@ const UserContent = () => {
       socket.off('message');
     };
   }, [user, isConnected, socket]);
+
+  useEffect(() => {
+    if (!user?._id || !isConnected || !socket) return;
+    
+    console.log('🎯 DIRECT: Setting up direct socket listener for ride-started');
+    
+    // Direct socket listener for ride-started events
+    socket.on('ride-started', (ride) => {
+      console.log('🚗 RIDE STARTED: Received ride data:', ride);
+      
+      // Store current ride data in localStorage
+      try {
+        // Store the essential ride data
+        const rideToStore = {
+          _id: ride._id,
+          pickup: ride.pickup,
+          destination: ride.destination,
+          fare: ride.fare,
+          status: 'ongoing'
+        };
+        
+        // Store driver details if available
+        if (driverDetails) {
+          localStorage.setItem('driverDetails', JSON.stringify(driverDetails));
+        }
+        
+        // Store ride data
+        localStorage.setItem('currentRide', JSON.stringify(rideToStore));
+        
+        console.log('🚗 RIDE STARTED: Stored ride data in localStorage, forcing redirect!');
+      } catch (error) {
+        console.error('Error storing ride data:', error);
+      }
+      
+      // Force immediate hard navigation to riding page
+      console.log('🚨 REDIRECTING: Force navigation to /Riding');
+      window.location.href = '/Riding';
+      
+      // Also try router navigation as fallback
+      setRideStage('riding');
+      router.push('/Riding');
+    });
+    
+    // Handle message events that contain ride started notifications
+    socket.on('message', (data) => {
+      if (data?.event === 'ride-started') {
+        console.log('🎯 DIRECT: Detected ride-started in message event:', data);
+        
+        // Extract ride data
+        const ride = data.data;
+        
+        // Force immediate hard navigation first
+        if (ride) {
+          console.log('🚨 MESSAGE REDIRECTING: Force navigation to /Riding');
+          
+          // Store the data first
+          try {
+            localStorage.setItem('currentRide', JSON.stringify({
+              _id: ride._id,
+              pickup: ride.pickup,
+              destination: ride.destination,
+              fare: ride.fare,
+              status: 'ongoing'
+            }));
+            
+            if (driverDetails) {
+              localStorage.setItem('driverDetails', JSON.stringify(driverDetails));
+            }
+          } catch (error) {
+            console.error('Error storing ride data from message event:', error);
+          }
+          
+          // Force hard navigation
+          window.location.href = '/Riding';
+        }
+        
+        // Process as fallback
+        socket.emit('ride-started', ride);
+      }
+    });
+    
+    return () => {
+      socket.off('ride-started');
+      socket.off('message');
+    };
+  }, [user, isConnected, socket, driverDetails, router]);
 
   // GSAP Animations
   useGSAP(() => {
@@ -498,29 +613,81 @@ const UserContent = () => {
     
   }, [user, isConnected, socket, sendMessage]);
 
+  // DOM event listener for ride-started event
+  useEffect(() => {
+    // Create handler functions
+    const handleRideStarted = (event) => {
+      if (event && event.detail) {
+        console.log('🚗 DOM EVENT: Ride started event received:', event.detail);
+        
+        try {
+          // Get ride data
+          const ride = event.detail;
+          
+          // Store in localStorage
+          localStorage.setItem('currentRide', JSON.stringify({
+            _id: ride._id || ride.data?._id,
+            pickup: ride.pickup || ride.data?.pickup,
+            destination: ride.destination || ride.data?.destination,
+            fare: ride.fare || ride.data?.fare,
+            status: 'ongoing'
+          }));
+          
+          if (driverDetails) {
+            localStorage.setItem('driverDetails', JSON.stringify(driverDetails));
+          }
+          
+          console.log('🚗 DOM EVENT: Stored ride data, navigating to Riding page');
+        } catch (error) {
+          console.error('Error handling DOM ride-started event:', error);
+        }
+        
+        // Force navigation
+        window.location.href = '/Riding';
+      }
+    };
+    
+    const handleForceUpdate = (event) => {
+      if (event.detail && event.detail.rideStarted) {
+        console.log('🚗 FORCE UPDATE: Ride started flag detected, navigating to Riding page');
+        window.location.href = '/Riding';
+      }
+    };
+    
+    // Add the event listeners
+    document.addEventListener('ride-started-dom', handleRideStarted);
+    document.addEventListener('forceRideUpdate', handleForceUpdate);
+    
+    return () => {
+      // Clean up
+      document.removeEventListener('ride-started-dom', handleRideStarted);
+      document.removeEventListener('forceRideUpdate', handleForceUpdate);
+    };
+  }, [driverDetails]);
+
   return (
     <>
       <div className='h-screen relative'>
         <button onClick={handleLogout} className="px-6 py-3 top-0 absolute right-0 z-10 bg-red-600 text-white rounded hover:bg-red-500 transition">Logout</button>
         <img className='w-20 absolute left-5 top-5' src="images/logo11.png" alt="Logo" />
         <div className='h-screen w-screen'>
-          <img className='h-full w-full object-cover' src="https://www.medianama.com/wp-content/uploads/2018/06/Screenshot_20180619-112715.png.png" alt="Map" />
+          <LiveTracking />
         </div>
         <div className='absolute top-0 w-full flex flex-col justify-end h-screen'>
           <div className='h-[35%] bg-white p-5 relative'>
-            <h4 onClick={() => setRideStage('idle')} className='text-2xl font-bold cursor-pointer'>
+            <h4 onClick={() => setPanelOpen(!panelOpen)} className='text-2xl font-bold cursor-pointer'>
               Find Your Nearest Ambulance <i ref={panelcloseRef} className="ri-arrow-down-s-line ml-2"></i>
             </h4>
             <form onSubmit={submitHandler} className='flex flex-col'>
-              <input value={pickup} onChange={(e) => handleInputChange(e, 'pickup')} type="text" placeholder='Add Pickup Location' className='bg-[#eee] px-12 py-2 rounded-lg w-full mt-5' />
-              <input value={dropoff} onChange={(e) => handleInputChange(e, 'dropoff')} type="text" placeholder='Add Drop Location (Hospital)' className='bg-[#eee] px-12 py-2 rounded-lg w-full mt-5' />
+              <input value={pickup} onClick={()=>setPanelOpen(true)} onChange={(e) => handleInputChange(e, 'pickup')} type="text" placeholder='Add Pickup Location' className='bg-[#eee] px-12 py-2 rounded-lg w-full mt-5' />
+              <input value={dropoff} onClick={()=>setPanelOpen(true)} onChange={(e) => handleInputChange(e, 'dropoff')} type="text" placeholder='Add Drop Location (Hospital)' className='bg-[#eee] px-12 py-2 rounded-lg w-full mt-5' />
               <button type="submit" className='bg-green-500 text-white font-semibold rounded-lg px-10 p-3 mt-5 w-full'>Find Trip</button>
             </form>
           </div>
           <div ref={panelRef} className='bg-white h-[0%] overflow-hidden'>
             <LocationSearchPanel
               suggestions={suggestions}
-              setpanel={() => setRideStage('idle')}
+              setpanel={() => setPanelOpen(false)}
               setvehiclepanel={() => setRideStage('vehicle-select')}
               onLocationSelect={handleLocationSelect}
               isPickup={activeInput === 'pickup'}

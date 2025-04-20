@@ -6,6 +6,7 @@ const ambulancedriverModel = require('../models/ambulancedriver.model');
 const rideModel = require('../models/ride.model');
 const { json } = require('express');
 const userModel = require('../models/user.model');
+const { selectUnknownFields } = require('express-validator/lib/field-selection');
 
 module.exports.createRide = async(req, res) => {
     const errors = validationResult(req);
@@ -195,5 +196,98 @@ module.exports.confirmRide = async (req, res) => {
     return res.status(500).json({ 
       message: err.message || 'Failed to confirm ride'
     });
+  }
+};
+module.exports.startRide = async (req, res) => {
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  const { rideId, otp } = req.query;
+  try{
+    const ride = await rideService.startRide({rideId, otp, ambulancedriver: req.user});
+    if (!ride) {
+      return res.status(404).json({ message: 'Ride not found' });
+    }
+    sendMessageToSocketId(ride.user.socketId, {
+      event: 'ride-started',
+      data: ride
+    });
+    return res.status(200).json(ride);
+
+  }catch(err){
+    console.error('Error starting ride:', err);
+    return res.status(500).json({ message: 'Failed to start ride' });
+  }
+}
+
+module.exports.endRide = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  const { rideId } = req.body;
+  try {
+    const ride = await rideService.endRide({ rideId, ambulancedriver: req.user });
+    if (!ride) {
+      return res.status(404).json({ message: 'Ride not found' });
+    }
+    sendMessageToSocketId(ride.user.socketId, {
+      event: 'ride-ended',
+      data: ride
+    });
+    return res.status(200).json(ride);
+  } catch (err) {
+    console.error('Error ending ride:', err);
+    return res.status(500).json({ message: 'Failed to end ride' });
+  }
+}
+
+// Add a new controller function for getting ride status
+module.exports.getRideStatus = async (req, res) => {
+  console.log('🔍 getRideStatus controller triggered with:', req.query);
+  
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const { rideId } = req.query;
+  
+  try {
+    // Check if user is authorized to view this ride
+    const ride = await rideModel.findOne({
+      _id: rideId,
+      $or: [
+        { user: req.user._id },
+        { ambulancedriver: req.user._id }
+      ]
+    }).populate('user', 'fullname email').populate('ambulancedriver', 'fullname vehicle');
+    
+    if (!ride) {
+      return res.status(404).json({ message: 'Ride not found or you are not authorized to view it' });
+    }
+    
+    // Return the ride with important status information
+    return res.status(200).json({
+      _id: ride._id,
+      status: ride.status,
+      pickup: ride.pickup,
+      destination: ride.destination,
+      fare: ride.fare,
+      driver: ride.ambulancedriver ? {
+        _id: ride.ambulancedriver._id,
+        fullname: ride.ambulancedriver.fullname,
+        vehicle: ride.ambulancedriver.vehicle
+      } : null,
+      user: ride.user ? {
+        _id: ride.user._id,
+        fullname: ride.user.fullname
+      } : null
+    });
+  } catch (err) {
+    console.error('Error getting ride status:', err);
+    return res.status(500).json({ message: 'Error fetching ride status' });
   }
 };

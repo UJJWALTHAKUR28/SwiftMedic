@@ -1,8 +1,10 @@
+const { send } = require('process');
 const ambulancedriverModel = require('../models/ambulancedriver.model');
 const rideModel = require('../models/ride.model');
 const mapService =require('./map.service')
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const { sendMessageToSocketId } = require('../socket');
 
 
 const vehicleMapping = {
@@ -148,3 +150,75 @@ module.exports.confirmRide = async ({ rideId, ambulancedriver }) => {
     throw error;
   }
 };
+
+module.exports.startRide = async ({ rideId, ambulancedriver, otp }) => {
+  console.log('startRide service triggered with:', { 
+    rideId, 
+    driverId: ambulancedriver._id,
+    otp
+  }); 
+
+  if (!rideId || !ambulancedriver || !otp) {
+    throw new Error("Ride ID, ambulance driver, and OTP are required");
+  }
+
+  try {
+    const ride = await rideModel.findOne({_id:rideId
+    }).populate('user').populate('ambulancedriver').select('+otp');
+    if (!ride) {
+      throw new Error('Ride not found');
+    }
+    if(ride.status !== 'accepted'){
+      throw new Error('Ride is not in accepted status');
+    }
+    if (ride.otp !== otp) {
+      throw new Error('Invalid OTP');
+    }
+    await rideModel.findOneAndUpdate({_id:rideId}, {
+        status: 'ongoing',
+    });
+    sendMessageToSocketId(ride.user.socketId,{
+      event:'ride-started',
+      data:ride
+    })
+    return ride;
+    // First verify ride exists
+  }catch (error) {
+    console.error('Error starting ride:', error);
+    throw error;
+  }
+}
+
+module.exports.endRide = async ({ rideId, ambulancedriver }) => {
+  console.log('endRide service triggered with:', { 
+    rideId, 
+    driverId: ambulancedriver._id
+  }); 
+
+  if (!rideId || !ambulancedriver) {
+    throw new Error("Ride ID and ambulance driver are required");
+  }
+
+  try {
+    const ride = await rideModel.findOne({_id:rideId,
+      ambulancedriver:ambulancedriver._id
+    }).populate('user').populate('ambulancedriver');
+    if (!ride) {
+      throw new Error('Ride not found');
+    }
+    if(ride.status !== 'ongoing'){
+      throw new Error('Ride is not in ongoing status');
+    }
+    await rideModel.findOneAndUpdate({_id:rideId}, {
+        status: 'completed',
+    });
+    sendMessageToSocketId(ride.user.socketId,{
+      event:'ride-ended',
+      data:ride
+    })
+    return ride;
+  } catch (error) {
+    console.error('Error ending ride:', error);
+    throw error;
+  }
+}
