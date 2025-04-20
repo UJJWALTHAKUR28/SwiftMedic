@@ -70,7 +70,53 @@ const DriverPage = () => {
 
   const confirmRide = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/rides/confirm`, {
+      console.log('Confirming ride:', ride._id);
+      
+      // First update UI to prevent multiple clicks
+      setridenotifypopup(false);
+      setConfirmridenotify(true);
+      
+      // Format driver data for consistency
+      const driverInfo = {
+        _id: driverData._id,
+        fullname: driverData.fullname || { firstname: "Driver", lastname: "" },
+        vehicle: driverData.vehicle || { type: "Ambulance", plate: "Unknown" },
+        // Make phone optional
+        ...(driverData.phonenumber && { phone: driverData.phonenumber }),
+        ...(driverData.phone && { phone: driverData.phone })
+      };
+      
+      console.log('🚨 DRIVER INFO BEING SENT:', JSON.stringify(driverInfo));
+      
+      // 1. Direct socket event for ride confirmation
+      sendMessage('ride-confirmed', {
+        driver: driverInfo,
+        rideId: ride._id
+      });
+      
+      // 2. Socket message event for broader compatibility
+      sendMessage('message', {
+        event: 'ride-confirmed',
+        data: {
+          driver: driverInfo,
+          rideId: ride._id
+        }
+      });
+      
+      // 3. Direct socket emit for immediate delivery
+      if (isConnected) {
+        const socket = window.socket;
+        if (socket) {
+          console.log('🔥 DIRECT SOCKET: Emitting ride-confirmed directly');
+          socket.emit('ride-confirmed', {
+            driver: driverInfo,
+            rideId: ride._id
+          });
+        }
+      }
+      
+      // Call the API to update the database
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_API_URL}/rides/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,18 +124,34 @@ const DriverPage = () => {
         },
         body: JSON.stringify({
           rideId: ride._id,
-          captainId: driverData._id
+          driverId: driverData._id,
+          driverInfo: driverInfo  // Include complete driver info in API call
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to confirm ride');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to confirm ride');
       }
 
-      setridenotifypopup(false);
-      setConfirmridenotify(true);
+      const confirmedRide = await response.json();
+      console.log('🎉 Ride confirmed successfully:', confirmedRide);
+      
+      // Try a last broadcast attempt after confirmation
+      setTimeout(() => {
+        console.log('🔄 RETRY: Sending final confirmation broadcast');
+        sendMessage('ride-confirmed', {
+          driver: driverInfo,
+          rideId: ride._id,
+          confirmed: true
+        });
+      }, 500);
+      
+      // Navigate to riding page after a short delay
+     
     } catch (error) {
       console.error('Error confirming ride:', error);
+      alert('Failed to confirm ride: ' + error.message);
     }
   };
 
@@ -145,7 +207,7 @@ const DriverPage = () => {
           setridenotifypopup={setridenotifypopup} 
           setConfirmridenotify={setConfirmridenotify}
           ride={ride}
-          onConfirm={confirmRide}
+          confirmRide={confirmRide}
         />
       </div>
       <div ref={confirmridenotifyRef} className='fixed w-full z-10 bottom-0 bg-white px-3 py-6 translate-y-full h-screen'>

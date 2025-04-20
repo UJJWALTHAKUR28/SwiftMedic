@@ -21,6 +21,51 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Global emergency handler for ride confirmations
+            window.emergencyRideConfirmationHandler = function(data) {
+              console.log('🚨 EMERGENCY: Ride confirmation received at document level:', data);
+              
+              // Store the data globally
+              window.lastRideConfirmation = data;
+              
+              // Set a flag to indicate we've received a confirmation
+              window.hasReceivedRideConfirmation = true;
+              
+              // Dispatch event for components to listen for
+              document.dispatchEvent(new CustomEvent('emergency-ride-update', {
+                detail: data
+              }));
+            };
+            
+            // Listen for socket messages globally
+            window.addEventListener('message', function(event) {
+              if (event.data && event.data.event === 'ride-confirmed') {
+                window.emergencyRideConfirmationHandler(event.data);
+              }
+            });
+            
+            // Also attach to the socket event if we can
+            document.addEventListener('DOMContentLoaded', function() {
+              // Wait for socket library to load and set up event listeners
+              setTimeout(function watchForSocket() {
+                if (window.io) {
+                  console.log('Socket.io detected at document level, setting up listeners');
+                  
+                  // Watch for direct socket messages
+                  document.addEventListener('ride-confirmed-dom', function(event) {
+                    window.emergencyRideConfirmationHandler(event.detail);
+                  });
+                } else {
+                  setTimeout(watchForSocket, 500);
+                }
+              }, 500);
+            });
+          `
+        }} />
+      </head>
       <body className="antialiased">
         <div className="layout-container">
         <SocketProvider>

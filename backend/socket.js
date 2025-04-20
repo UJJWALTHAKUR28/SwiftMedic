@@ -121,12 +121,13 @@ const sendMessageToSocketId = (socketId, message) => {
         socket.emit('message', message);
         return true;
     } else {
-        console.log(`Socket ${socketId} not found`);
+        console.log(`Socket ${socketId} not found or disconnected`);
         return false;
     }
 };
 
 module.exports = {
     initializeSocket,
-    sendMessageToSocketId
+    sendMessageToSocketId,
+    get io() { return io; }
 };

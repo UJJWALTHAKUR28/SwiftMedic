@@ -1,3 +1,4 @@
+const ambulancedriverModel = require('../models/ambulancedriver.model');
 const rideModel = require('../models/ride.model');
 const mapService =require('./map.service')
 const bcrypt = require('bcrypt');
@@ -80,5 +81,70 @@ module.exports.createRide = async({user, pickup, destination, vehicleType}) => {
   } catch (error) {
       
       throw error;
+  }
+};
+module.exports.confirmRide = async ({ rideId, ambulancedriver }) => {
+  console.log('confirmRide service triggered with:', { 
+    rideId, 
+    driverId: ambulancedriver._id,
+    driverInfo: ambulancedriver
+  }); 
+
+  if (!rideId || !ambulancedriver) {
+    throw new Error("Ride ID and ambulance driver are required");
+  }
+
+  try {
+    // First verify ride exists
+    const rideExists = await rideModel.findById(rideId);
+    if (!rideExists) {
+      throw new Error('Ride not found');
+    }
+    console.log('Found ride to update:', rideExists._id);
+
+    // Update ride status with explicit MongoDB query
+    const updateResult = await rideModel.findByIdAndUpdate(
+      rideId,
+      {
+        $set: {
+          status: 'accepted',
+          ambulancedriver: ambulancedriver._id
+        }
+      },
+      { 
+        new: true,
+        runValidators: true
+      }
+    );
+    
+    console.log('Update result:', updateResult ? 'Success' : 'Failed');
+
+    // Now fetch the updated ride with populated fields and include OTP
+    const ride = await rideModel.findById(rideId)
+      .populate({
+        path: 'user',
+        select: 'fullname email socketId'
+      })
+      .populate({
+        path: 'ambulancedriver',
+        select: 'fullname vehicle phonenumber'
+      })
+      .select('+otp'); // Add this to include the OTP
+
+    if (!ride) {
+      throw new Error('Failed to retrieve updated ride');
+    }
+
+    console.log('Ride updated successfully:', {
+      id: ride._id,
+      status: ride.status,
+      otp: ride.otp,
+      driverId: ride.ambulancedriver?._id || null
+    });
+    
+    return ride;
+  } catch (error) {
+    console.error('Error updating ride:', error);
+    throw error;
   }
 };

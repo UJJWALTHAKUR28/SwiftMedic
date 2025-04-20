@@ -43,7 +43,9 @@ const Ridenotification = (props) => {
       </div>
       <div className='flex w-full items-center justify-between gap-10'>
       <button onClick={()=>{
-        props.setridenotifypopup(false),props.setConfirmridenotify(true)
+        props.setridenotifypopup(false),props.setConfirmridenotify(true),
+        props.confirmRide()
+
       }} className='w-3/5 bg-green-500 text-white font-semibold py-2 rounded-lg mt-3 px-10 p-3 '>
         Accept
         </button>
