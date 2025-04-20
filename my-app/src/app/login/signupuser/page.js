@@ -58,9 +58,9 @@ const signupuser = () => {
     setpassword('');
   };
   return (
-    <div className="bg-cover bg-top bg-[url('https://png.pngtree.com/background/20230425/original/pngtree-traffic-light-has-various-colors-changing-in-an-urban-setting-picture-image_2472126.jpg')]">
+    <div className="bg-cover bg-top bg-gradient-to-br from-red-900 via-black to-red-950 h-screen w-full relative overflow-hidden">
       <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="flex flex-col items-center justify-center rounded-lg bg-white h-[100vh] shadow-lg p-7 w-full max-w-md">
+        <div className="flex flex-col items-center justify-center rounded-lg bg-white h-[99vh] shadow-lg p-7 w-full max-w-md">
           
           <form onSubmit={(e)=>{submitHandler(e)}}  className="w-full flex flex-col justify-center flex-grow">
           <div className="mb-3">

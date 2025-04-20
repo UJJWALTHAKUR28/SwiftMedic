@@ -183,7 +183,7 @@ const DriverPage = () => {
   const handleLogout = async () => {
     try {
       await logoutUser('ambulancedriver/logout');
-      router.push('/login/driverlogin');
+      router.push('/');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -191,7 +191,7 @@ const DriverPage = () => {
 
   return (
     <div className='h-screen'>
-      <div className='fixed p-6 top-0 flex items-center justify-between w-screen'>
+      <div className='fixed p-6 top-0 flex items-center justify-between w-screen z-10'>
         <img className='w-25' src="images/logo11.png" alt=''/>
         <Link onClick={handleLogout} href="/login/driverlogin" className='h-10 w-10 bg-white flex item-center justify-center rounded-full'>
           <i className="text-3xl font-medium ri-logout-box-r-line"></i>

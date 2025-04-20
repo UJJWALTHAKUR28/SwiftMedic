@@ -37,7 +37,7 @@ const LoginUser = () => {
     setpassword('');
   };
   return (
-    <div className="bg-cover bg-top bg-[url('https://png.pngtree.com/background/20230425/original/pngtree-traffic-light-has-various-colors-changing-in-an-urban-setting-picture-image_2472126.jpg')]">
+    <div className="bg-cover bg-top bg-gradient-to-br from-red-950 via-black to-red-900  overflow-hidden h-screen w-full relative">
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="flex flex-col items-center justify-center rounded-lg bg-white h-[80vh] shadow-lg p-7 w-full max-w-md">
           

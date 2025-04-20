@@ -430,7 +430,7 @@ useGSAP(() => {
   const handleLogout = async () => {
     await logoutUser('users/logout');
     localStorage.removeItem('token');
-    router.push('/login/loginuser');
+    router.push('/');
   };
 
   // Polling mechanism to force UI update if stuck in searching
