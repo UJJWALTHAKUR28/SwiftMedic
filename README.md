@@ -230,76 +230,104 @@ NEXT_PUBLIC_GA_ID=your_google_analytics_id
 ## 📁 Project Structure
 
 ```
-swiftmedic/
+SwiftMedic/
 ├── 📂 backend/                    # Node.js/Express Backend
-│   ├── 📂 controllers/           # Request handlers
-│   │   ├── 🏥 userController.js
+│   ├── 📂 controllers/            # Request handlers
+│   │   ├── 🔐 authController.js
+│   │   ├── 👤 userController.js
 │   │   ├── 🚑 driverController.js
 │   │   ├── 📋 rideController.js
 │   │   └── 👨‍💼 adminController.js
-│   ├── 📂 db/                    # Database configuration
+│   ├── 📂 db/                     # Database configuration
 │   │   └── 🔗 connection.js
-│   ├── 📂 middlewares/           # Express middlewares
+│   ├── 📂 middlewares/            # Express middlewares
 │   │   ├── 🔐 auth.js
 │   │   ├── 🛡️ validation.js
-│   │   └── 📝 logger.js
-│   ├── 📂 models/                # Mongoose schemas
+│   │   ├── 📝 logger.js
+│   │   └── 🚫 rateLimiter.js
+│   ├── 📂 models/                 # Mongoose schemas
 │   │   ├── 👤 User.js
 │   │   ├── 🚗 Driver.js
 │   │   ├── 🚑 Ride.js
+│   │   ├── 💳 Payment.js
 │   │   └── 📊 Analytics.js
-│   ├── 📂 routes/                # API routes
+│   ├── 📂 routes/                 # API routes
 │   │   ├── 🔐 auth.js
 │   │   ├── 👥 users.js
 │   │   ├── 🚑 rides.js
+│   │   ├── 🚗 drivers.js
 │   │   └── 📊 admin.js
-│   ├── 📂 services/              # Business logic
+│   ├── 📂 services/               # Business logic
 │   │   ├── 📍 locationService.js
 │   │   ├── 💳 paymentService.js
-│   │   └── 📧 notificationService.js
-│   ├── 📂 scripts/               # Utility scripts
+│   │   ├── 📧 notificationService.js
+│   │   └── 🗺️ mapsService.js
+│   ├── 📂 scripts/                # Utility scripts
 │   │   ├── 🔄 updateDriverLocations.js
-│   │   └── 🧪 test-socket-client.js
-│   ├── 🚀 server.js              # Main server file
-│   ├── 📱 App.js                 # Express app configuration
-│   ├── 🔌 socket.js              # Socket.IO configuration
-│   └── 📦 package.json           # Dependencies
+│   │   ├── 🧪 test-socket-client.js
+│   │   └── 🗃️ seedDatabase.js
+│   ├── 🚀 server.js               # Main server file
+│   ├── 📱 App.js                  # Express app configuration
+│   ├── 🔌 socket.js               # Socket.IO configuration
+│   └── 📦 package.json            # Dependencies
 │
 ├── 📂 my-app/                     # Next.js Frontend
-│   ├── 📂 public/                # Static assets
+│   ├── 📂 public/                 # Static assets
 │   │   ├── 🖼️ images/
 │   │   ├── 🎨 icons/
+│   │   ├── 🌐 manifest.json
 │   │   └── 📄 favicon.ico
-│   ├── 📂 src/                   # Source code
-│   │   ├── 📂 components/        # Reusable components
+│   ├── 📂 src/                    # Source code
+│   │   ├── 📂 components/         # Reusable components
 │   │   │   ├── 🗺️ Map/
+│   │   │   │   ├── GoogleMap.jsx
+│   │   │   │   ├── RealTimeTracker.jsx
+│   │   │   │   └── LocationPicker.jsx
 │   │   │   ├── 🚑 RideCard/
+│   │   │   │   ├── RideBooking.jsx
+│   │   │   │   ├── RideStatus.jsx
+│   │   │   │   └── RideHistory.jsx
 │   │   │   ├── 📊 Dashboard/
-│   │   │   └── 🔐 Auth/
-│   │   ├── 📂 pages/             # Next.js pages
-│   │   │   ├── 🏠 index.js
-│   │   │   ├── 🔐 login.js
-│   │   │   ├── 📝 register.js
-│   │   │   ├── 📊 dashboard.js
-│   │   │   └── 🚑 book-ride.js
-│   │   ├── 📂 styles/            # CSS styles
+│   │   │   │   ├── UserDashboard.jsx
+│   │   │   │   ├── DriverDashboard.jsx
+│   │   │   │   └── AdminDashboard.jsx
+│   │   │   ├── 🔐 Auth/
+│   │   │   │   ├── LoginForm.jsx
+│   │   │   │   ├── RegisterForm.jsx
+│   │   │   │   └── ProtectedRoute.jsx
+│   │   │   └── 🎨 UI/
+│   │   │       ├── Button.jsx
+│   │   │       ├── Modal.jsx
+│   │   │       └── LoadingSpinner.jsx
+│   │   ├── 📂 pages/              # Next.js pages
+│   │   │   ├── 🏠 index.js        # Landing page
+│   │   │   ├── 🔐 login.js        # User login
+│   │   │   ├── 📝 register.js     # User registration
+│   │   │   ├── 📊 dashboard.js    # User dashboard
+│   │   │   ├── 🚑 book-ride.js    # Ride booking
+│   │   │   ├── 📍 track-ride.js   # Real-time tracking
+│   │   │   └── 📱 api/            # API routes
+│   │   ├── 📂 styles/             # CSS styles
 │   │   │   ├── 🎨 globals.css
-│   │   │   └── 📱 components.css
-│   │   ├── 📂 utils/             # Utility functions
-│   │   │   ├── 🔌 api.js
-│   │   │   ├── 🔐 auth.js
-│   │   │   └── 🗺️ maps.js
-│   │   └── 📂 hooks/             # Custom React hooks
-│   │       ├── 🔌 useSocket.js
-│   │       └── 📍 useLocation.js
-│   ├── 📦 package.json           # Frontend dependencies
-│   ├── ⚙️ next.config.js         # Next.js configuration
-│   └── 🎨 tailwind.config.js     # Tailwind CSS config
+│   │   │   ├── 📱 components.css
+│   │   │   └── 🗺️ maps.css
+│   │   ├── 📂 utils/              # Utility functions
+│   │   │   ├── 🔌 api.js          # API calls
+│   │   │   ├── 🔐 auth.js         # Authentication helpers
+│   │   │   ├── 🗺️ maps.js         # Google Maps utilities
+│   │   │   └── 📍 location.js     # Location services
+│   │   └── 📂 hooks/              # Custom React hooks
+│   │       ├── 🔌 useSocket.js    # Socket.IO hook
+│   │       ├── 📍 useLocation.js  # Geolocation hook
+│   │       └── 🔐 useAuth.js      # Authentication hook
+│   ├── 📦 package.json            # Frontend dependencies
+│   ├── ⚙️ next.config.js          # Next.js configuration
+│   └── 🎨 tailwind.config.js      # Tailwind CSS config
 │
-├── 📖 README.md                  # Project documentation
-├── 📄 LICENSE                    # MIT License
-├── 🐙 .gitignore                 # Git ignore rules
-└── ⚙️ docker-compose.yml         # Docker configuration (optional)
+├── 📖 README.md                   # Project documentation
+├── 📄 LICENSE                     # MIT License
+├── 🐙 .gitignore                  # Git ignore rules
+
 ```
 
 ---
@@ -328,47 +356,6 @@ swiftmedic/
 | ![Google Maps](https://img.shields.io/badge/Google%20Maps-API-4285F4?logo=google-maps&logoColor=white) | Latest | Mapping service |
 
 ---
-
-## 🔌 API Documentation
-
-### 🔐 Authentication Endpoints
-
-```http
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/logout
-GET  /api/auth/profile
-PUT  /api/auth/profile
-```
-
-### 🚑 Ride Management
-
-```http
-POST /api/rides/book          # Book new ride
-GET  /api/rides/user/:userId  # Get user rides
-GET  /api/rides/:id           # Get ride details
-PUT  /api/rides/:id/status    # Update ride status
-DELETE /api/rides/:id         # Cancel ride
-```
-
-### 🚗 Driver Operations
-
-```http
-GET  /api/drivers/available   # Get available drivers
-POST /api/drivers/location    # Update driver location
-GET  /api/drivers/:id/rides   # Get driver rides
-PUT  /api/drivers/:id/status  # Update availability
-```
-
-### 📊 Admin Panel
-
-```http
-GET  /api/admin/dashboard     # Dashboard stats
-GET  /api/admin/users         # Manage users
-GET  /api/admin/drivers       # Manage drivers
-GET  /api/admin/rides         # All rides
-GET  /api/admin/analytics     # System analytics
-```
 
 ---
 
