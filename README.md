@@ -108,7 +108,7 @@ git clone https://github.com/yourusername/swiftmedic.git
 cd swiftmedic
 
 # Install and start backend
-cd backend && npm install && npm start
+cd backend && npm install && npx nodemon
 
 # Install and start frontend (new terminal)
 cd ../my-app && npm install && npm run dev
