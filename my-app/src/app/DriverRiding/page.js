@@ -9,6 +9,8 @@ import gsap from 'gsap';
 import FinishRide from '@/components/FinishRide';
 import { useDriver } from '../context/captaincontext';
 import { useSocket } from '../context/SocketContext';
+import GoogleMapsProvider from '@/components/GoogleMapsProvider';
+import DriverLiveRouteMap from '@/components/DriverLiveRouteMap';
 
 const DriverRidingPage = () => {
   const [finishRidepnael, setfinishRidepnael] = useState(false);
@@ -129,7 +131,14 @@ const DriverRidingPage = () => {
       </div>
       
       <div className='h-4/5'>
-        <img className='h-full w-full object-cover' src="https://www.medianama.com/wp-content/uploads/2018/06/Screenshot_20180619-112715.png.png" alt="Map"></img>
+        <GoogleMapsProvider>
+          {currentRide && (
+            <DriverLiveRouteMap
+              pickup={currentRide.pickup}
+              destination={currentRide.destination}
+            />
+          )}
+        </GoogleMapsProvider>
       </div>
       
       <div className='h-1/5 p-6 bg-red-200 flex flex-col items-center justify-center relative'>
